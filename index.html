@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TO-DO List</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+    <script src="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/alertify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.0/jquery.min.js" integrity="sha512-3gJwYpMe3QewGELv8k/BX9vcqhryRdzRMxVfq6ngyWXwo03GFEzjsUm8Q7RZcHPHksttq7/GFoxjCVUjkjvPdw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/parsley.js/2.9.2/parsley.min.js"></script>
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/alertify.min.css" />
+    <style>
+        .parsley-errors-list li {
+            color: #ff3860;
+        }
+
+        .parsley-error {
+            border-color: #ff3860;
+        }
+
+        .task-description-cell {
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="box" style="max-width: 900px; margin: auto;">
+        <section class="section">
+            <div class="container">
+                <h1 class="title">TO-DO LIST</h1>
+                <form id="taskForm" class="box" data-parsley-validate>
+                    <div class="field">
+                        <label class="label">Task Name</label>
+                        <div class="control">
+                            <input class="input" type="text" name="taskName" required data-parsley-trigger="keyup"
+                                   data-parsley-maxlength="15" data-parsley-tasknameunique>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Task Description</label>
+                        <div class="control">
+                            <textarea class="textarea" name="taskDescription" required data-parsley-trigger="keyup"
+                                      data-parsley-maxlength="500"></textarea>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Task Status</label>
+                        <div class="control">
+                            <label class="radio">
+                                <input type="radio" name="taskStatus" value="pending" checked>
+                                Pending
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="taskStatus" value="success">
+                                Success
+                            </label>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="control">
+                            <button type="button" onclick="addTask()" class="button is-primary">Add Task</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="control">
+                            <label class="label">Filter by Task Status</label>
+                            <div class="select">
+                                <select id="statusFilter" onchange="filterTasks()">
+                                    <option value="all">All</option>
+                                    <option value="success">Success</option>
+                                    <option value="pending">Pending</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <table class="table is-bordered is-striped is-hoverable" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Task Name</th>
+                            <th>Task Description</th>
+                            <th>Task Status</th>
+                            <th>Task Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="taskTable">
+                        <!-- The added tasks will be displayed here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let counter = 1;
+        const tasks = [];
+
+        window.Parsley.addValidator('tasknameunique', {
+            validateString: function (value) {
+                return tasks.findIndex(task => task.name === value) === -1;
+            },
+            messages: {
+                en: 'This task name is already present in the table.'
+            }
+        });
+
+        function addTask() {
+            $('#taskForm').parsley().reset();
+            const isValidForm = $('#taskForm').parsley().validate();
+
+            if (isValidForm) {
+                const taskName = document.forms["taskForm"]["taskName"].value;
+                const taskDescription = document.forms["taskForm"]["taskDescription"].value;
+                const taskStatus = document.querySelector('input[name="taskStatus"]:checked').value;
+
+                const newRow = document.createElement("tr");
+                newRow.innerHTML = `
+                    <td>${counter}</td>
+                    <td>${taskName}</td>
+                    <td class="task-description-cell">${taskDescription}</td>
+                    <td>
+                        <div class="select">
+                            <select onchange="changeStatus(this)">
+                                <option value="pending" ${taskStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="success" ${taskStatus === 'success' ? 'selected' : ''}>Success</option>
+                            </select>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="button is-danger" onclick="confirmDelete(this)">Delete</button>
+                    </td>
+                `;
+
+                counter++;
+                document.getElementById("taskTable").appendChild(newRow);
+
+                tasks.push({
+                    name: taskName,
+                    description: taskDescription,
+                    status: taskStatus
+                });
+
+                document.getElementById("taskForm").reset();
+            }
+        }
+
+        function confirmDelete(button) {
+            const row = button.parentElement.parentElement;
+            const taskName = row.querySelector('td:nth-child(2)').textContent;
+
+            alertify.confirm('Confirm Delete', `Are you sure you want to delete the task "${taskName}"?`,
+                function () {
+                    row.remove();
+                    alertify.success('Task deleted successfully.');
+                    const index = tasks.findIndex(task => task.name === taskName);
+                    if (index !== -1) {
+                        tasks.splice(index, 1);
+                    }
+                },
+                function () {
+                    // Do nothing if cancel button is clicked
+                }
+            );
+        }
+
+        function changeStatus(selectElement) {
+            const row = selectElement.parentElement.parentElement.parentElement;
+            const taskName = row.querySelector('td:nth-child(2)').textContent;
+            const newStatus = selectElement.value;
+
+            const task = tasks.find(t => t.name === taskName);
+            if (task) {
+                task.status = newStatus;
+            }
+        }
+
+        function filterTasks() {
+            const statusFilter = document.getElementById("statusFilter").value;
+            const taskTable = document.getElementById("taskTable");
+            taskTable.innerHTML = "";
+
+            tasks.forEach((task, index) => {
+                if (statusFilter === "all" || task.status === statusFilter) {
+                    const newRow = document.createElement("tr");
+                    newRow.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${task.name}</td>
+                        <td class="task-description-cell">${task.description}</td>
+                        <td>
+                            <div class="select">
+                                <select onchange="changeStatus(this)">
+                                    <option value="pending" ${task.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                    <option value="success" ${task.status === 'success' ? 'selected' : ''}>Success</option>
+                                </select>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="button is-danger" onclick="confirmDelete(this)">Delete</button>
+                        </td>
+                    `;
+                    taskTable.appendChild(newRow);
+                }
+            });
+        }
+
+        document.getElementById("statusFilter").addEventListener("change", filterTasks);
+
+    </script>
+</body>
+</html>
